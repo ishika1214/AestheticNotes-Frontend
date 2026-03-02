@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { Pin, Globe } from 'lucide-react';

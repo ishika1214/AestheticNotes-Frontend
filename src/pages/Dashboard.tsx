@@ -12,8 +12,7 @@ import {
   Sparkles,
   Book,
   PenTool,
-  FileText,
-  ChevronUp
+  FileText
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";

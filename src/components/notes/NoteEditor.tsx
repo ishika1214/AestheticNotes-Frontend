@@ -61,6 +61,7 @@ export default function NoteEditor({
   const [isPreview, setIsPreview] = useState(false);
   const [showCoverInput, setShowCoverInput] = useState(false);
   const [coverUrl, setCoverUrl] = useState(note.cover_image || "");
+  const [isAIActive, setIsAIActive] = useState(false);
 
   const buildUpdates = (): NoteUpdate => ({
     title,
@@ -259,10 +260,17 @@ export default function NoteEditor({
           </div>
         </div>
 
-        <AIActions content={content} onUpdate={handleAIUpdate} />
+
+        <AIActions 
+          content={content} 
+          original={{ title, content, tags }}
+          onUpdate={handleAIUpdate} 
+          onPreviewChange={setIsAIActive}
+        />
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-10">
+        {!isAIActive && (
+          <div className="flex-1 overflow-y-auto p-6 sm:p-10">
           <div className="mx-auto">
             <div className="flex items-center gap-6 mb-8">
               <div className="relative">
@@ -325,6 +333,7 @@ export default function NoteEditor({
             <RichTextEditor value={content} onChange={setContent} />
           </div>
         </div>
+      )}
 
         {/* Footer */}
         <div className="p-4 border-t border-black/5 dark:border-white/5 flex items-center justify-between">

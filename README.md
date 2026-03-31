@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# 🧘‍♂️✨📜 Aesthetic Notes — The Immersive Writing Studio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Elevate your digital writing experience. **Aesthetic Notes** is a premium, distraction-free environment designed for long-form content, personal diaries, and creative masterpieces. Built for those who value both form and function.
 
-Currently, two official plugins are available:
+![Aesthetic UI](https://img.shields.io/badge/Aesthetics-Premium-purple)
+![Tech Stack](https://img.shields.io/badge/Stack-React_|_Vite_|_Tailwind-blue)
+![AI Powered](https://img.shields.io/badge/AI-Enhanced-emerald)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🍱 Design Philosophy
+In a world of cluttered productivity apps, **Aesthetic Notes** prioritizes the *act of creation*. Every element, from the book-like pagination to the subtle micro-animations, is crafted to pull you into a state of "flow."
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🍱 Key Features
 
-## Expanding the ESLint configuration
+### 🖋️ Immersive Book-Like Interface
+Experience your writing on a digital canvas that mimics a high-end physical notebook. Single-page focused layouts ensure every word has room to breathe.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🧠 AI-Powered Creative Assistant
+Generate effortless summaries, extract key insights, or chat with your own ideas using our integrated **AI Studio**. Let the machine handle the organization while you handle the inspiration.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📑 Smart Manual Pagination
+Take total control of your document structure. Use the **Add Page** control to intelligently split content or **Add Chapter** to start a fresh sequence.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 🔔 Aesthetic Feedback Loop
+Enjoy smooth, non-intrusive notifications powered by **Sonner**. Whether you're persisting a masterpiece or clearing an artifact, every action is met with minimalist visual confirmation.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 🌓 Fluid Theming
+Seamlessly transition between a crisp, structured Light Mode and a deep, immersive Dark Mode designed for late-night inspiration.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🍱 Technical Architecture
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Frontend**: React 19 + TypeScript + Vite
+- **Styling**: Tailwind CSS (Glassmorphism & Neon Design System)
+- **Animations**: Framer Motion (Motion 12)
+- **State Management**: Redux Toolkit (Slices for Auth, Notes, and UI)
+- **Icons**: Lucide React
+- **Notifications**: Sonner (Aesthetic Toasts)
+
+---
+
+## 🍱 Project Gallery
+
+| Feature | Description |
+| :--- | :--- |
+| **Studio Note** | For quick thoughts and summaries. |
+| **Novel Mode** | Chapter-based structure for long-form storytelling. |
+| **Diary Mode** | Chronological entries with unique date-stamped spreads. |
+
+---
+
+## 🍱 Getting Started
+
+1. **Clone the repository**
+2. **Install Dependencies**: `npm install`
+3. **Environment Setup**: Create a `.env` file for your backend API and AI keys.
+4. **Run Development**: `npm run dev`
+
+---
+
+**Aesthetic Notes** is not just an app; it's a sanctuary for your thoughts. 🥂✨📜🌻

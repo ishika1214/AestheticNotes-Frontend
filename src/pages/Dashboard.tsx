@@ -9,54 +9,57 @@ import {
   Hash,
   Pin,
   LogOut,
+  Sparkles,
+  Book,
+  PenTool,
+  FileText,
+  ChevronUp
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../hooks/redux";
 import { logout } from "../store/slices/authSlice";
 import {
   fetchNotes,
   fetchTags,
-  createNote,
   updateNote,
   deleteNote,
   bulkDeleteNotes,
 } from "../store/slices/noteSlice";
 import NoteCard from "../components/notes/NoteCard";
-import NoteEditor from "../components/notes/NoteEditor";
-import type { Note, NoteUpdate } from "../types";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import Logo from "../assets/aesthetic-notes-logo.png";
+import Logo from "../assets/Logo.png";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const NEW_NOTE_TEMPLATE: Note = {
-  _id: "",
-  title: "",
-  content: "",
-  emoji: "📝",
-  color: "bg-white/70 dark:bg-[#4a2d5a]/20 backdrop-blur-xl border-black/5 dark:border-white/10",
-  is_public: false,
-  is_pinned: false,
-  tags: [],
-  cover_image: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
 export default function Dashboard() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { notes, tags: allTags } = useAppSelector((state) => state.notes);
 
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isNewNote, setIsNewNote] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeType, setActiveType] = useState<'all' | 'note' | 'novel' | 'diary'>('all');
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   function getInitialTheme() {
     const savedTheme = localStorage.getItem("theme");
@@ -94,49 +97,41 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateNote = () => {
-    setEditingNote({
-      ...NEW_NOTE_TEMPLATE,
-      updated_at: new Date().toISOString(),
-    });
-    setIsNewNote(true);
-    setIsEditorOpen(true);
-  };
-
-  const handleSaveNote = async (updates: NoteUpdate) => {
-    if (isNewNote) {
-      await dispatch(createNote(updates));
-      dispatch(fetchTags());
-    } else if (editingNote) {
-      dispatch(updateNote({ id: editingNote._id, updates }));
-    }
+  const handleCreateNote = (type: 'note' | 'novel' | 'diary' = 'note') => {
+    navigate(`/note/new?type=${type}`);
   };
 
   const handleDeleteNote = (id: string) => {
-    if (confirm("Are you sure?")) {
-      dispatch(deleteNote(id));
-      setIsEditorOpen(false);
-      setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: "Delete Note",
+      message: "Are you sure you want to delete this note? This action cannot be undone.",
+      onConfirm: () => {
+        dispatch(deleteNote(id));
+        setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
+        toast.success("Artifact Erased 🗑️");
+      },
+    });
   };
 
   const handleBulkDelete = () => {
-    if (confirm(`Delete ${selectedIds.length} notes permanently?`)) {
-      dispatch(bulkDeleteNotes(selectedIds));
-      setSelectedIds([]);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: "Bulk Delete",
+      message: `Are you sure you want to delete ${selectedIds.length} notes permanently?`,
+      onConfirm: () => {
+        dispatch(bulkDeleteNotes(selectedIds));
+        const count = selectedIds.length;
+        setSelectedIds([]);
+        toast.success(`${count} Artifacts Erased 🧹`);
+      },
+    });
   };
 
   const toggleSelectNote = (id: string) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
-  };
-
-  const handleCloseEditor = () => {
-    setIsEditorOpen(false);
-    setIsNewNote(false);
-    setEditingNote(null);
   };
 
   const toggleTagFilter = (tag: string) => {
@@ -150,37 +145,47 @@ export default function Dashboard() {
       n.title.toLowerCase().includes(search.toLowerCase()) ||
       n.content.toLowerCase().includes(search.toLowerCase()) ||
       n.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+    
     const matchesTags =
       selectedTags.length === 0 ||
       selectedTags.every((tag) => n.tags.includes(tag));
-    return matchesSearch && matchesTags;
+    
+    const matchesType = activeType === 'all' || (n.type || 'note') === activeType;
+    
+    return matchesSearch && matchesTags && matchesType;
   });
 
   const pinnedNotes = filteredNotes.filter((n) => n.is_pinned);
   const otherNotes = filteredNotes.filter((n) => !n.is_pinned);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header
-        className="
-  sticky top-0 z-30
-  bg-white/60
-  dark:bg-black/40
-  backdrop-blur-2xl
-  border-b
-  border-black/5
-  dark:border-white/10
-  px-4 py-4
-"
-      >
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#fbfbfe] dark:bg-[#0d0d12] transition-colors duration-700 text-stone-900 dark:text-stone-100">
+      {/* Immersive Background Elements */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:24px_24px] opacity-60 dark:opacity-20" />
+        
+        <motion.div 
+          animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }} 
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[var(--neon-purple)] opacity-30 dark:opacity-40 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen" 
+        />
+        <motion.div 
+          animate={{ x: [0, -40, 0], y: [0, 60, 0], scale: [1, 1.2, 1] }} 
+          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[-10%] right-[-10%] w-[35%] h-[35%] bg-[var(--neon-cyan)] opacity-30 dark:opacity-30 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen" 
+        />
+        <motion.div 
+          animate={{ x: [0, 30, 0], y: [0, -30, 0] }} 
+          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[30%] left-[20%] w-[20%] h-[20%] bg-[var(--neon-pink)] opacity-20 dark:opacity-20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen" 
+        />
+      </div>
+
+      <header className="sticky top-0 z-30 bg-white/60 dark:bg-black/40 backdrop-blur-2xl border-b border-black/5 dark:border-white/10 px-4 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 flex items-center justify-center">
-              <img
-                src={Logo}
-                alt="Aesthetic Notes Logo"
-                className="w-10 h-10"
-              />
+              <img src={Logo} alt="Aesthetic Notes Logo" className="w-10 h-10" />
             </div>
             <h1 className="text-xl font-black tracking-tight hidden sm:block text-[var(--accent)] dark:text-stone-50 uppercase italic">
               Aesthetic Notes
@@ -204,22 +209,22 @@ export default function Dashboard() {
               className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all active:scale-90 text-stone-500 dark:text-stone-400"
               title={viewMode === "grid" ? "List View" : "Grid View"}
             >
-              {viewMode === "grid" ? (
-                <ListIcon className="w-5 h-5" />
-              ) : (
-                <LayoutGrid className="w-5 h-5" />
-              )}
+              {viewMode === "grid" ? <ListIcon className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
             </button>
             <button
               onClick={toggleTheme}
               className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all active:scale-90 text-stone-500 dark:text-stone-400"
               title="Toggle Theme"
             >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={() => navigate("/chat")}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[var(--accent)]/10 to-[var(--accent)]/[0.05] hover:from-[var(--accent)] hover:to-[var(--accent)] hover:text-white rounded-xl transition-all active:scale-95 text-[var(--accent)] border border-[var(--accent)]/20 shadow-sm group"
+              title="AI Companion"
+            >
+              <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
+              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Study AI</span>
             </button>
             <div className="w-px h-6 bg-black/5 dark:bg-white/5 mx-1" />
             <button
@@ -234,18 +239,19 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6">
+        {/* TAGS FILTER */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex flex-wrap gap-2.5 mb-2 overflow-x-auto pb-2 scrollbar-hide text-nowrap">
             <button
               onClick={() => setSelectedTags([])}
               className={cn(
                 "px-5 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm",
                 selectedTags.length === 0
                   ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20"
-                  : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/5 text-stone-500 dark:text-stone-400 hover:bg-stone-50",
+                  : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 text-stone-400"
               )}
             >
-              All Notes
+              All Tags
             </button>
             {allTags.map((tag) => (
               <button
@@ -255,7 +261,7 @@ export default function Dashboard() {
                   "px-5 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 shadow-sm",
                   selectedTags.includes(tag)
                     ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20"
-                    : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/5 text-stone-500 dark:text-stone-400 hover:bg-stone-50",
+                    : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 text-stone-400"
                 )}
               >
                 <Hash className="w-3 h-3" />
@@ -265,37 +271,51 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* TYPE TABS */}
+        <div className="flex items-center gap-6 mb-8 border-b border-black/5 dark:border-white/5 pb-4 overflow-x-auto scrollbar-hide">
+          {[
+            { id: 'all', label: 'All Artifacts', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'note', label: 'Studio Notes', icon: <FileText className="w-4 h-4" /> },
+            { id: 'novel', label: 'Masterpiece Novels', icon: <Book className="w-4 h-4" /> },
+            { id: 'diary', label: 'Personal Diaries', icon: <PenTool className="w-4 h-4" /> },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveType(tab.id as any)}
+              className={cn(
+                "flex items-center gap-2 px-1 pb-4 relative transition-all whitespace-nowrap",
+                activeType === tab.id 
+                  ? "text-[var(--accent)] font-black" 
+                  : "text-stone-400 font-bold hover:text-stone-600 dark:hover:text-stone-200"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                activeType === tab.id ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20" : "bg-stone-100 dark:bg-white/5"
+              )}>
+                {tab.icon}
+              </div>
+              <span className="text-[10px] uppercase tracking-widest">{tab.label}</span>
+              {activeType === tab.id && (
+                <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--accent)] rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
         {pinnedNotes.length > 0 && (
           <section className="mb-8">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-stone-400 mb-4 flex items-center gap-2">
               <Pin className="w-3 h-3" /> Pinned
             </h2>
-            <div
-              className={cn(
-                "grid gap-4",
-                viewMode === "grid"
-                  ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                  : "grid-cols-1",
-              )}
-            >
+            <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
               {pinnedNotes.map((note) => (
                 <NoteCard
                   key={note._id}
                   note={note}
                   viewMode={viewMode}
-                  onClick={() => {
-                    setEditingNote(note);
-                    setIsNewNote(false);
-                    setIsEditorOpen(true);
-                  }}
-                  onPin={() =>
-                    dispatch(
-                      updateNote({
-                        id: note._id,
-                        updates: { is_pinned: !note.is_pinned },
-                      }),
-                    )
-                  }
+                  onClick={() => navigate(`/note/${note._id}`)}
+                  onPin={() => dispatch(updateNote({ id: note._id, updates: { is_pinned: !note.is_pinned } }))}
                   onDelete={() => handleDeleteNote(note._id)}
                   isSelectionMode={selectedIds.length > 0}
                   isSelected={selectedIds.includes(note._id)}
@@ -312,32 +332,14 @@ export default function Dashboard() {
               Others
             </h2>
           )}
-          <div
-            className={cn(
-              "grid gap-4",
-              viewMode === "grid"
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                : "grid-cols-1",
-            )}
-          >
+          <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
             {otherNotes.map((note) => (
               <NoteCard
                 key={note._id}
                 note={note}
                 viewMode={viewMode}
-                onClick={() => {
-                  setEditingNote(note);
-                  setIsNewNote(false);
-                  setIsEditorOpen(true);
-                }}
-                onPin={() =>
-                  dispatch(
-                    updateNote({
-                      id: note._id,
-                      updates: { is_pinned: !note.is_pinned },
-                    }),
-                  )
-                }
+                onClick={() => navigate(`/note/${note._id}`)}
+                onPin={() => dispatch(updateNote({ id: note._id, updates: { is_pinned: !note.is_pinned } }))}
                 onDelete={() => handleDeleteNote(note._id)}
                 isSelectionMode={selectedIds.length > 0}
                 isSelected={selectedIds.includes(note._id)}
@@ -348,23 +350,53 @@ export default function Dashboard() {
         </section>
       </main>
 
-      <button
-        onClick={handleCreateNote}
-        className="fixed bottom-10 right-10 w-16 h-16 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-[24px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] shadow-[var(--accent)]/40 flex items-center justify-center transition-all hover:scale-110 active:scale-90 z-40 group"
-      >
-        <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
-      </button>
+      {/* CREATE MENU SYSTEM */}
+      <div className="fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4">
+        <AnimatePresence>
+          {showCreateMenu && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              className="flex flex-col gap-3 mb-2"
+            >
+              {[
+                { type: 'diary', label: 'Daily Diary', icon: <PenTool className="w-4 h-4" />, color: "bg-emerald-500" },
+                { type: 'novel', label: 'Novel Masterpiece', icon: <Book className="w-4 h-4" />, color: "bg-purple-500" },
+                { type: 'note', label: 'Studio Note', icon: <FileText className="w-4 h-4" />, color: "bg-amber-500" },
+              ].map((opt) => (
+                <button
+                  key={opt.type}
+                  onClick={() => handleCreateNote(opt.type as any)}
+                  className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 rounded-2xl shadow-xl hover:scale-105 transition-all text-left group"
+                >
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg", opt.color)}>
+                    {opt.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 dark:text-stone-300">
+                    {opt.label}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {isEditorOpen && editingNote && (
-          <NoteEditor
-            note={editingNote}
-            onClose={handleCloseEditor}
-            onUpdate={handleSaveNote}
-            onDelete={() => handleDeleteNote(editingNote._id)}
-          />
-        )}
-      </AnimatePresence>
+        <motion.button
+          onClick={() => setShowCreateMenu(!showCreateMenu)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className={cn(
+            "flex items-center gap-3 px-8 py-4 rounded-[28px] shadow-[0_32px_64px_-16px_rgba(124,58,237,0.4)] transition-all overflow-hidden relative group",
+            showCreateMenu ? "bg-stone-800 text-white" : "bg-stone-900 dark:bg-stone-50 text-white dark:text-stone-900"
+          )}
+        >
+          <Plus className={cn("w-5 h-5 transition-transform duration-500 relative z-10", showCreateMenu && "rotate-[135deg]")} />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] relative z-10 hidden sm:block">
+            {showCreateMenu ? "Close Menu" : "Create Masterpiece"}
+          </span>
+        </motion.button>
+      </div>
 
       <AnimatePresence>
         {selectedIds.length > 0 && (
@@ -403,6 +435,14 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

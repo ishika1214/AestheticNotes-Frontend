@@ -8,6 +8,8 @@ export interface Note {
   is_pinned: boolean;
   cover_image: string | null;
   tags: string[];
+  type: 'note' | 'novel' | 'diary';
+  sections: { title: string; content: string; date?: string; _id?: string }[];
   created_at: string;
   updated_at: string;
 }

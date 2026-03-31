@@ -245,12 +245,13 @@ export const RichTextEditor = React.forwardRef<HTMLDivElement, RichTextEditorPro
   ({ value, onChange, isDarkMode = false }, ref) => {
     const editor = useEditor({
       extensions: [
-        StarterKit.configure({
-          hardBreak: false,
-        }),
+        StarterKit,
         Underline,
         Link.configure({
           openOnClick: false,
+          HTMLAttributes: {
+            class: 'text-[var(--accent)] underline cursor-pointer',
+          },
         }),
       ],
       content: value,
@@ -258,6 +259,12 @@ export const RichTextEditor = React.forwardRef<HTMLDivElement, RichTextEditorPro
         onChange(editor.getHTML());
       },
     });
+
+    React.useEffect(() => {
+      if (editor && value !== editor.getHTML()) {
+        editor.commands.setContent(value, { emitUpdate: false });
+      }
+    }, [value, editor]);
 
     return (
       <div ref={ref} className="w-full rounded-2xl border border-black/5 dark:border-white/5 overflow-hidden bg-transparent">

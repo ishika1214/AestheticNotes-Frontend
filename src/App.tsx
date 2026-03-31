@@ -7,6 +7,7 @@ import Landing from './pages/Landing';
 import NoteStudio from './pages/NoteStudio';
 import AIChat from './pages/AIChat';
 import AuthModal from './components/auth/AuthModal';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const dispatch = useAppDispatch();
@@ -20,6 +21,7 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster position="top-center" richColors expand visibleToasts={3} />
       <Routes>
         <Route 
           path="/" 

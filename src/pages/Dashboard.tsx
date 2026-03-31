@@ -10,8 +10,13 @@ import {
   Pin,
   LogOut,
   Sparkles,
+  Book,
+  PenTool,
+  FileText,
+  ChevronUp
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../hooks/redux";
 import { logout } from "../store/slices/authSlice";
@@ -31,6 +36,7 @@ import Logo from "../assets/Logo.png";
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -40,6 +46,9 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeType, setActiveType] = useState<'all' | 'note' | 'novel' | 'diary'>('all');
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -88,8 +97,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateNote = () => {
-    navigate("/note/new");
+  const handleCreateNote = (type: 'note' | 'novel' | 'diary' = 'note') => {
+    navigate(`/note/new?type=${type}`);
   };
 
   const handleDeleteNote = (id: string) => {
@@ -100,6 +109,7 @@ export default function Dashboard() {
       onConfirm: () => {
         dispatch(deleteNote(id));
         setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
+        toast.success("Artifact Erased 🗑️");
       },
     });
   };
@@ -111,7 +121,9 @@ export default function Dashboard() {
       message: `Are you sure you want to delete ${selectedIds.length} notes permanently?`,
       onConfirm: () => {
         dispatch(bulkDeleteNotes(selectedIds));
+        const count = selectedIds.length;
         setSelectedIds([]);
+        toast.success(`${count} Artifacts Erased 🧹`);
       },
     });
   };
@@ -133,10 +145,14 @@ export default function Dashboard() {
       n.title.toLowerCase().includes(search.toLowerCase()) ||
       n.content.toLowerCase().includes(search.toLowerCase()) ||
       n.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+    
     const matchesTags =
       selectedTags.length === 0 ||
       selectedTags.every((tag) => n.tags.includes(tag));
-    return matchesSearch && matchesTags;
+    
+    const matchesType = activeType === 'all' || (n.type || 'note') === activeType;
+    
+    return matchesSearch && matchesTags && matchesType;
   });
 
   const pinnedNotes = filteredNotes.filter((n) => n.is_pinned);
@@ -146,10 +162,8 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#fbfbfe] dark:bg-[#0d0d12] transition-colors duration-700 text-stone-900 dark:text-stone-100">
       {/* Immersive Background Elements */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        {/* Designer Dot Grid for extra depth */}
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:24px_24px] opacity-60 dark:opacity-20" />
         
-        {/* Soft Glowing Orbs */}
         <motion.div 
           animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }} 
           transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
@@ -167,26 +181,11 @@ export default function Dashboard() {
         />
       </div>
 
-      <header
-        className="
-  sticky top-0 z-30
-  bg-white/60
-  dark:bg-black/40
-  backdrop-blur-2xl
-  border-b
-  border-black/5
-  dark:border-white/10
-  px-4 py-4
-"
-      >
+      <header className="sticky top-0 z-30 bg-white/60 dark:bg-black/40 backdrop-blur-2xl border-b border-black/5 dark:border-white/10 px-4 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 flex items-center justify-center">
-              <img
-                src={Logo}
-                alt="Aesthetic Notes Logo"
-                className="w-10 h-10"
-              />
+              <img src={Logo} alt="Aesthetic Notes Logo" className="w-10 h-10" />
             </div>
             <h1 className="text-xl font-black tracking-tight hidden sm:block text-[var(--accent)] dark:text-stone-50 uppercase italic">
               Aesthetic Notes
@@ -210,29 +209,22 @@ export default function Dashboard() {
               className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all active:scale-90 text-stone-500 dark:text-stone-400"
               title={viewMode === "grid" ? "List View" : "Grid View"}
             >
-              {viewMode === "grid" ? (
-                <ListIcon className="w-5 h-5" />
-              ) : (
-                <LayoutGrid className="w-5 h-5" />
-              )}
+              {viewMode === "grid" ? <ListIcon className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
             </button>
             <button
               onClick={toggleTheme}
               className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all active:scale-90 text-stone-500 dark:text-stone-400"
               title="Toggle Theme"
             >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             <button
               onClick={() => navigate("/chat")}
-              className="p-2.5 hover:bg-[var(--accent)]/10 rounded-xl transition-all active:scale-90 text-[var(--accent)]"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[var(--accent)]/10 to-[var(--accent)]/[0.05] hover:from-[var(--accent)] hover:to-[var(--accent)] hover:text-white rounded-xl transition-all active:scale-95 text-[var(--accent)] border border-[var(--accent)]/20 shadow-sm group"
               title="AI Companion"
             >
-              <Sparkles className="w-5 h-5" />
+              <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
+              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Study AI</span>
             </button>
             <div className="w-px h-6 bg-black/5 dark:bg-white/5 mx-1" />
             <button
@@ -247,18 +239,19 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6">
+        {/* TAGS FILTER */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex flex-wrap gap-2.5 mb-2 overflow-x-auto pb-2 scrollbar-hide text-nowrap">
             <button
               onClick={() => setSelectedTags([])}
               className={cn(
                 "px-5 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm",
                 selectedTags.length === 0
                   ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20"
-                  : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/5 text-stone-500 dark:text-stone-400 hover:bg-stone-50",
+                  : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 text-stone-400"
               )}
             >
-              All Notes
+              All Tags
             </button>
             {allTags.map((tag) => (
               <button
@@ -268,7 +261,7 @@ export default function Dashboard() {
                   "px-5 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 shadow-sm",
                   selectedTags.includes(tag)
                     ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20"
-                    : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/5 text-stone-500 dark:text-stone-400 hover:bg-stone-50",
+                    : "bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 text-stone-400"
                 )}
               >
                 <Hash className="w-3 h-3" />
@@ -278,33 +271,51 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* TYPE TABS */}
+        <div className="flex items-center gap-6 mb-8 border-b border-black/5 dark:border-white/5 pb-4 overflow-x-auto scrollbar-hide">
+          {[
+            { id: 'all', label: 'All Artifacts', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'note', label: 'Studio Notes', icon: <FileText className="w-4 h-4" /> },
+            { id: 'novel', label: 'Masterpiece Novels', icon: <Book className="w-4 h-4" /> },
+            { id: 'diary', label: 'Personal Diaries', icon: <PenTool className="w-4 h-4" /> },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveType(tab.id as any)}
+              className={cn(
+                "flex items-center gap-2 px-1 pb-4 relative transition-all whitespace-nowrap",
+                activeType === tab.id 
+                  ? "text-[var(--accent)] font-black" 
+                  : "text-stone-400 font-bold hover:text-stone-600 dark:hover:text-stone-200"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                activeType === tab.id ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20" : "bg-stone-100 dark:bg-white/5"
+              )}>
+                {tab.icon}
+              </div>
+              <span className="text-[10px] uppercase tracking-widest">{tab.label}</span>
+              {activeType === tab.id && (
+                <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--accent)] rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
         {pinnedNotes.length > 0 && (
           <section className="mb-8">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-stone-400 mb-4 flex items-center gap-2">
               <Pin className="w-3 h-3" /> Pinned
             </h2>
-            <div
-              className={cn(
-                "grid gap-4",
-                viewMode === "grid"
-                  ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                  : "grid-cols-1",
-              )}
-            >
+            <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
               {pinnedNotes.map((note) => (
                 <NoteCard
                   key={note._id}
                   note={note}
                   viewMode={viewMode}
                   onClick={() => navigate(`/note/${note._id}`)}
-                  onPin={() =>
-                    dispatch(
-                      updateNote({
-                        id: note._id,
-                        updates: { is_pinned: !note.is_pinned },
-                      }),
-                    )
-                  }
+                  onPin={() => dispatch(updateNote({ id: note._id, updates: { is_pinned: !note.is_pinned } }))}
                   onDelete={() => handleDeleteNote(note._id)}
                   isSelectionMode={selectedIds.length > 0}
                   isSelected={selectedIds.includes(note._id)}
@@ -321,28 +332,14 @@ export default function Dashboard() {
               Others
             </h2>
           )}
-          <div
-            className={cn(
-              "grid gap-4",
-              viewMode === "grid"
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                : "grid-cols-1",
-            )}
-          >
+          <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
             {otherNotes.map((note) => (
               <NoteCard
                 key={note._id}
                 note={note}
                 viewMode={viewMode}
                 onClick={() => navigate(`/note/${note._id}`)}
-                onPin={() =>
-                  dispatch(
-                    updateNote({
-                      id: note._id,
-                      updates: { is_pinned: !note.is_pinned },
-                    }),
-                  )
-                }
+                onPin={() => dispatch(updateNote({ id: note._id, updates: { is_pinned: !note.is_pinned } }))}
                 onDelete={() => handleDeleteNote(note._id)}
                 isSelectionMode={selectedIds.length > 0}
                 isSelected={selectedIds.includes(note._id)}
@@ -353,22 +350,53 @@ export default function Dashboard() {
         </section>
       </main>
 
-      <motion.button
-        onClick={handleCreateNote}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="fixed bottom-10 right-10 flex items-center gap-3 px-8 py-4 bg-stone-900 dark:bg-stone-50 border border-black/5 dark:border-white/10 rounded-[28px] shadow-[0_32px_64px_-16px_rgba(124,58,237,0.4)] z-40 group overflow-hidden energy-pulse"
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-purple)]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <Plus className="w-5 h-5 text-[var(--neon-purple)] group-hover:rotate-90 transition-transform duration-300 relative z-10" />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white dark:text-black relative z-10">
-          Create Masterpiece
-        </span>
-      </motion.button>
+      {/* CREATE MENU SYSTEM */}
+      <div className="fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4">
+        <AnimatePresence>
+          {showCreateMenu && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              className="flex flex-col gap-3 mb-2"
+            >
+              {[
+                { type: 'diary', label: 'Daily Diary', icon: <PenTool className="w-4 h-4" />, color: "bg-emerald-500" },
+                { type: 'novel', label: 'Novel Masterpiece', icon: <Book className="w-4 h-4" />, color: "bg-purple-500" },
+                { type: 'note', label: 'Studio Note', icon: <FileText className="w-4 h-4" />, color: "bg-amber-500" },
+              ].map((opt) => (
+                <button
+                  key={opt.type}
+                  onClick={() => handleCreateNote(opt.type as any)}
+                  className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-stone-900 border border-black/5 dark:border-white/10 rounded-2xl shadow-xl hover:scale-105 transition-all text-left group"
+                >
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg", opt.color)}>
+                    {opt.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 dark:text-stone-300">
+                    {opt.label}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {/* NoteEditor modal integration removed — now using dedicated NoteStudio pages */}
-      </AnimatePresence>
+        <motion.button
+          onClick={() => setShowCreateMenu(!showCreateMenu)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className={cn(
+            "flex items-center gap-3 px-8 py-4 rounded-[28px] shadow-[0_32px_64px_-16px_rgba(124,58,237,0.4)] transition-all overflow-hidden relative group",
+            showCreateMenu ? "bg-stone-800 text-white" : "bg-stone-900 dark:bg-stone-50 text-white dark:text-stone-900"
+          )}
+        >
+          <Plus className={cn("w-5 h-5 transition-transform duration-500 relative z-10", showCreateMenu && "rotate-[135deg]")} />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] relative z-10 hidden sm:block">
+            {showCreateMenu ? "Close Menu" : "Create Masterpiece"}
+          </span>
+        </motion.button>
+      </div>
 
       <AnimatePresence>
         {selectedIds.length > 0 && (

@@ -297,7 +297,7 @@ export default function NoteEditor({
               />
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-10">
+            <div className="flex flex-wrap gap-2 mb-4">
               {tags.map((tag) => (
                 <span
                   key={tag}

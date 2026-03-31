@@ -62,11 +62,26 @@ export default function NoteCard({
         className={cn("p-6 flex-1 flex flex-col", viewMode === "list" && "p-0")}
       >
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <span className="text-2xl shrink-0 filter drop-shadow-sm">{note.emoji}</span>
-            <h3 className="font-extrabold text-lg truncate text-stone-900 dark:text-stone-50 tracking-tight">
-              {note.title || "Untitled"}
-            </h3>
+          <div className="flex items-center gap-2 overflow-hidden flex-1">
+            <span className="text-xl shrink-0 filter drop-shadow-sm">{note.emoji || "📝"}</span>
+            <div className="flex flex-col min-w-0">
+               <div className="flex items-center gap-2">
+                 <h3 className="font-extrabold text-base truncate text-stone-900 dark:text-stone-50 tracking-tight">
+                   {note.title || "Untitled"}
+                 </h3>
+                 {note.is_public && (
+                   <Globe className="w-3 h-3 text-[var(--accent)] shrink-0" />
+                 )}
+               </div>
+               {note.type !== 'note' && (
+                 <span className={cn(
+                   "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full w-fit",
+                   note.type === 'diary' ? "bg-emerald-500/10 text-emerald-600" : "bg-purple-500/10 text-purple-600"
+                 )}>
+                   {note.type}
+                 </span>
+               )}
+            </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
             <button
@@ -99,14 +114,32 @@ export default function NoteCard({
           className="
   text-stone-500
   dark:text-stone-400
-  text-[13px]
+  text-[12px]
   leading-relaxed
   line-clamp-3
-  mb-6
+  mb-4
   flex-1
 "
-          dangerouslySetInnerHTML={{ __html: note.content || "No content..." }}
-        />
+        >
+          {(() => {
+            const stripHtml = (html: string) => {
+              const tmp = document.createElement("DIV");
+              tmp.innerHTML = html;
+              return tmp.textContent || tmp.innerText || "";
+            };
+
+            if (note.type === 'note') {
+              return stripHtml(note.content || "No content...");
+            }
+            
+            const hasSections = note.sections && note.sections.length > 0;
+            if (hasSections) {
+              return note.sections.map(s => `${s.title}: ${stripHtml(s.content)}`).join(' • ');
+            }
+            
+            return stripHtml(note.content || "Empty Story...");
+          })()}
+        </div>
 
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-black/5 dark:border-white/5">
           <div className="flex flex-wrap gap-1.5">
@@ -129,12 +162,6 @@ export default function NoteCard({
           </span>
         </div>
       </div>
-
-      {note.is_public && (
-        <div className="absolute top-3 left-3 p-1.5 bg-white/80 dark:bg-[#4a2d5a]/20 backdrop-blur-md rounded-full shadow-lg border border-black/5 dark:border-white/10">
-          <Globe className="w-3 h-3 text-[var(--accent)]" />
-        </div>
-      )}
 
       {/* Selection Checkbox */}
       <div

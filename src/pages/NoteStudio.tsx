@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import BookView from "../components/notes/BookView";
 import {
   Pin,
   Globe,
@@ -10,9 +12,11 @@ import {
   X,
   Trash2,
   ChevronLeft,
-  CloudCheck
+  CloudCheck,
+  Sparkles,
+  Plus
 } from "lucide-react";
-import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { type EmojiClickData, Theme } from "emoji-picker-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { RichTextEditor } from "../components/editor/RichTextEditor";
@@ -50,6 +54,13 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
+  const { search } = useLocation();
+  const queryType = new URLSearchParams(search).get('type') as 'note' | 'novel' | 'diary' | null;
+
+  const [type, setType] = useState<'note' | 'novel' | 'diary'>(queryType || 'note');
+  const [sections, setSections] = useState<{ title: string; content: string; date?: string; _id?: string }[]>(
+    (queryType === 'novel' || queryType === 'diary') ? [{ title: "Chapter 1", content: "" }] : []
+  );
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -57,9 +68,10 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
 
-  // NEW — AI Drawer State
-  const [showAIDrawer, setShowAIDrawer] = useState(false);
-
+  // NEW — AI Studio Panel State
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [isAIExpanded, setIsAIExpanded] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
   const justCreatedRef = useRef(false);
 
   useEffect(() => {
@@ -80,8 +92,14 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
         setIsPublic(note.is_public);
         setIsPinned(note.is_pinned);
         setTags(note.tags);
+        setType(note.type || 'note');
+        setSections(note.sections || []);
         setCoverUrl(note.cover_image || "");
         setUpdatedAt(note.updated_at);
+        // Always open at the last entry/page
+        if (note.sections && note.sections.length > 0) {
+          setCurrentPage(note.sections.length - 1);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch note:", error);
@@ -91,7 +109,8 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
   };
 
   const handleSave = async () => {
-    if (!title.trim() && !content.trim()) return;
+    const hasSectionsContent = sections.some(s => s.title.trim() || s.content.trim());
+    if (!title.trim() && !content.trim() && !hasSectionsContent) return;
 
     setIsSaving(true);
     try {
@@ -103,6 +122,8 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
         is_public: isPublic,
         is_pinned: isPinned,
         tags,
+        type,
+        sections,
         cover_image: coverUrl || null
       };
 
@@ -111,11 +132,14 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
         justCreatedRef.current = true;
 
         navigate(`/note/${data._id}`, { replace: true });
+        toast.success("New Masterpiece Persisted ✨");
       } else {
         await api.put(`/notes/${id}`, payload);
+        toast.success("Masterpiece Updated ✨");
       }
     } catch (error) {
       console.error("Failed to save note:", error);
+      toast.error("Creative block! Failed to save.");
     } finally {
       setIsSaving(false);
     }
@@ -126,9 +150,11 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
 
     try {
       await api.delete(`/notes/${id}`);
+      toast.success("Artifact Erased 🗑️");
       navigate("/");
     } catch (error) {
       console.error("Failed to delete note:", error);
+      toast.error("Failed to erase this artifact.");
     }
   };
 
@@ -140,6 +166,29 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
       setNewTag("");
     }
   };
+
+  const handleSplitPage = (index: number, keep: string, move: string) => {
+    const newSections = [...sections];
+    newSections[index] = { ...newSections[index], content: keep };
+    
+    const newSection = { 
+      title: type === 'diary' ? `Entry ${index + 2}` : `Chapter ${index + 2}`, 
+      content: move,
+      date: new Date().toISOString()
+    };
+    
+    newSections.splice(index + 1, 0, newSection);
+    setSections(newSections);
+    
+    // Calculate new spread index for BookView
+    const newSpread = Math.floor((index + 1) / 2);
+    setCurrentPage(newSpread);
+  };
+
+  // Aggregated content for AI actions
+  const aggregatedContent = type === 'note' 
+    ? content 
+    : sections.map(s => `## ${s.title}\n${s.content}`).join('\n\n');
 
   if (isLoading) {
     return (
@@ -161,67 +210,23 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
         color
       )}
     >
-      {/* MOVED AI ACTIONS → NEW FLOATING BUTTON */}
-      <button
-        onClick={() => setShowAIDrawer(true)}
-        className="
-          fixed right-8 bottom-16 z-50 
-          w-14 h-14 rounded-2xl 
-          bg-[var(--neon-purple)] text-white 
-          shadow-xl shadow-[var(--neon-purple)]/40 
-          hover:scale-110 active:scale-95 
-          transition-all flex items-center justify-center
-          backdrop-blur-xl text-lg font-black
-        "
-      >
-        AI
-      </button>
 
-      {/* SIDE DRAWER */}
-      <AnimatePresence>
-        {showAIDrawer && (
-          <motion.div
-            initial={{ x: 300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 300, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 140, damping: 18 }}
-            className="
-              fixed top-0 right-0 h-full w-[380px] 
-              bg-white/80 dark:bg-black/60 
-              backdrop-blur-3xl z-50 
-              border-l border-black/10 dark:border-white/10 
-              shadow-2xl p-6
-              flex flex-col
-            "
-          >
-            <button
-              onClick={() => setShowAIDrawer(false)}
-              className="absolute top-6 right-6 text-stone-500 hover:text-stone-900 dark:hover:text-white"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <h2 className="text-xl font-black mb-6 tracking-tight">AI Tools</h2>
-
-            <AIActions
-              content={content}
-              onUpdate={(u) => {
-                if (u.title) setTitle(u.title);
-                if (u.content) setContent(u.content);
-                if (u.tags) setTags([...new Set([...tags, ...u.tags])]);
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* HEADER */}
-      <header className="relative z-20 h-20 flex items-center justify-between px-6 bg-white/30 dark:bg-black/20 backdrop-blur-2xl border-b border-black/5 dark:border-white/5">
+      <header className="relative z-20 h-16 flex items-center justify-between px-6 bg-white/30 dark:bg-black/20 backdrop-blur-2xl border-b border-black/5 dark:border-white/5">
         <div className="flex items-center gap-6">
           <button
             onClick={async () => {
-              if (title.trim() || content.trim()) await handleSave();
-              navigate("/");
+              if (isNew) {
+                if (title.trim() || content.trim()) {
+                  await handleSave(); // handleSave handles navigation for new notes
+                } else {
+                  navigate("/");
+                }
+              } else {
+                await handleSave();
+                navigate("/");
+              }
             }}
             className="group flex items-center gap-2 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95"
           >
@@ -284,6 +289,55 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
                 )}
               </AnimatePresence>
             </div>
+
+            <button
+              onClick={() => setIsAIPanelOpen(!isAIPanelOpen)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all active:scale-95 group/ai relative overflow-hidden",
+                isAIPanelOpen 
+                  ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/30 border border-white/10" 
+                  : "bg-white/50 dark:bg-white/5 hover:bg-[var(--accent)]/10 border border-black/5 dark:border-white/5"
+              )}
+              title="AI Study Panel"
+            >
+              <Sparkles className={cn("w-4 h-4 transition-transform group-hover/ai:rotate-12 text-[var(--accent)]", isAIPanelOpen ? "text-white animate-pulse" : "text-[var(--accent)]")} />
+              <span className={cn(
+                "text-[10px] font-black uppercase tracking-widest leading-none transition-colors",
+                isAIPanelOpen ? "text-white" : "text-[var(--accent)]"
+              )}>
+                AI Studio
+              </span>
+              {!isAIPanelOpen && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/ai:translate-x-full transition-transform duration-1000" />
+              )}
+            </button>
+
+            {/* ENTRY CONTROLS (Top Right Outside Book) */}
+            {(type === 'diary' || type === 'novel') && (
+              <div className="flex items-center gap-2 bg-stone-100/50 dark:bg-white/5 p-1.5 rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
+                <button
+                  onClick={() => handleSplitPage(currentPage, sections[currentPage].content.slice(0, Math.floor(sections[currentPage].content.length / 2)), sections[currentPage].content.slice(Math.floor(sections[currentPage].content.length / 2)))}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-white dark:hover:bg-stone-900 rounded-xl transition-all active:scale-95 text-stone-600 dark:text-stone-300 group/split"
+                  title="Split into New Page"
+                >
+                  <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Add Page</span>
+                </button>
+                <div className="w-px h-4 bg-black/10 dark:bg-white/10" />
+                <button
+                  onClick={() => {
+                    const newIndex = sections.length;
+                    setSections([...sections, { title: type === 'diary' ? `Entry ${newIndex + 1}` : `Chapter ${newIndex + 1}`, content: "", date: new Date().toISOString() }]);
+                    setCurrentPage(newIndex);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-white dark:hover:bg-stone-900 rounded-xl transition-all active:scale-95 text-stone-600 dark:text-stone-300 group/add"
+                  title="Start Fresh Chapter"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Add Chapter</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -302,7 +356,8 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
           {!isNew && (
             <button
               onClick={deleteNote}
-              className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+              className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm border border-red-500/10"
+              title="Delete Note"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -310,16 +365,17 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
         </div>
       </header>
 
-      {/* MAIN CANVAS */}
-      <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide flex flex-col items-center">
-        <div className="w-full max-w-4xl px-12 py-16 flex flex-col flex-1">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* MAIN CANVAS */}
+        <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide flex flex-col items-center border-b md:border-b-0 md:border-r border-black/5 dark:border-white/5">
+        <div className="w-full max-w-4xl px-4 sm:px-12 py-6 sm:py-8 flex flex-col flex-1">
           {/* HEADER — EMOJI + TITLE */}
-          <div className="group relative mb-8">
-            <div className="flex items-center gap-8 mb-4">
+          <div className="group relative mb-4">
+            <div className="flex items-center gap-4 mb-2">
               <div className="relative group/emoji">
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="text-7xl md:text-8xl hover:scale-110 transition-transform active:scale-90"
+                  className="text-5xl md:text-6xl hover:scale-110 transition-transform active:scale-90"
                 >
                   {emoji}
                 </button>
@@ -337,7 +393,7 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
                           setEmoji(data.emoji);
                           setShowEmojiPicker(false);
                         }}
-                        theme={document.documentElement.classList.contains("dark") ? "dark" : "light"}
+                        theme={document.documentElement.classList.contains("dark") ? Theme.DARK : Theme.LIGHT}
                       />
                     </motion.div>
                   )}
@@ -349,12 +405,12 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
                 placeholder="Untitled Thought"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="flex-1 text-4xl md:text-6xl font-black bg-transparent border-none outline-none placeholder:text-stone-300 dark:placeholder:text-stone-800 tracking-tight"
+                className="flex-1 text-2xl md:text-4xl font-black bg-transparent border-none outline-none placeholder:text-stone-300 dark:placeholder:text-stone-800 tracking-tighter leading-tight"
               />
             </div>
 
             {/* TAGS */}
-            <div className="flex flex-wrap gap-2 mb-10">
+            <div className="flex flex-wrap gap-2 mb-4">
               {tags.map((tag) => (
                 <span
                   key={tag}
@@ -381,9 +437,29 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
             </div>
           </div>
 
-          {/* MAIN EDITOR */}
-          <div className="flex-1 min-h-[500px]">
-            <RichTextEditor value={content} onChange={setContent} />
+          {/* MAIN EDITOR / BOOK VIEW */}
+          <div className="flex-1 min-h-[500px] w-full">
+            {type === 'note' ? (
+              <RichTextEditor value={content} onChange={setContent} />
+            ) : (
+              <BookView 
+                type={type as 'novel' | 'diary'} 
+                sections={sections}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+                onUpdateSection={(index, updates) => {
+                  const newSections = [...sections];
+                  newSections[index] = { ...newSections[index], ...updates };
+                  setSections(newSections);
+                }}
+                onAddSection={() => {
+                  setSections([...sections, { title: "New Chapter", content: "" }]);
+                }}
+                onRemoveSection={(index) => {
+                  setSections(sections.filter((_, i) => i !== index));
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -407,6 +483,60 @@ export default function NoteStudio({ isNew = false }: NoteStudioProps) {
           </div>
         </footer>
       </main>
+
+      {/* PERSISTENT AI STUDIO PANEL */}
+      <motion.aside
+        initial={false}
+        animate={{ 
+          width: isAIPanelOpen ? (window.innerWidth < 768 ? '100%' : (isAIExpanded ? 850 : 420)) : 0,
+          opacity: isAIPanelOpen ? 1 : 0,
+          x: isAIPanelOpen ? 0 : (window.innerWidth < 768 ? '100%' : 0)
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className={cn(
+          "h-full bg-white/70 dark:bg-stone-950/40 backdrop-blur-3xl overflow-hidden flex flex-col border-l border-black/5 dark:border-white/5 z-50",
+          "fixed md:relative top-0 right-0 shadow-2xl md:shadow-none"
+        )}
+      >
+        <div className={cn(
+          "h-full p-6 sm:p-8 flex flex-col overflow-hidden transition-all duration-500",
+          isAIExpanded ? "w-full md:w-[850px]" : "w-full md:w-[420px]"
+        )}>
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--accent)]">Note AI Studio</h3>
+            <button
+               onClick={() => setIsAIPanelOpen(false)}
+               className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-stone-400"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <AIActions
+            content={aggregatedContent}
+            original={{ title, content: aggregatedContent, tags }}
+            onUpdate={(u) => {
+              if (u.title) setTitle(u.title);
+              if (u.content) {
+                if (type === 'note') {
+                  setContent(u.content);
+                } else {
+                   // For novels/diaries, we apply the AI update to the current chapter
+                   const newSections = [...sections];
+                   newSections[currentPage] = { 
+                     ...newSections[currentPage], 
+                     content: u.content 
+                   };
+                   setSections(newSections);
+                }
+              }
+              if (u.tags) setTags([...new Set([...tags, ...u.tags])]);
+            }}
+            onPreviewChange={setIsAIExpanded}
+          />
+        </div>
+      </motion.aside>
+     </div>
     </div>
   );
 }

@@ -5,7 +5,10 @@ import {
   Zap, 
   MessageSquare, 
   Layout, 
+  Sun,
+  Moon
 } from "lucide-react";
+import { useState, useEffect } from "react";
 import Logo from "../assets/Logo.png";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -44,12 +47,38 @@ const features = [
 export default function Landing() {
   const navigate = useNavigate();
 
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem("landing-theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("landing-theme", isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+
   return (
-    <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-purple-500/30 overflow-x-hidden">
+    <div className={cn(
+      "min-h-screen transition-colors duration-700 selection:bg-purple-500/30 overflow-x-hidden",
+      isDarkMode ? "bg-[#0d0d12] text-white" : "bg-stone-50 text-stone-900"
+    )}>
       {/* Mesh Gradients */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-purple-900/40 blur-[180px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/30 blur-[150px] rounded-full" />
+        <div className={cn(
+          "absolute top-[-20%] left-[-10%] w-[60%] h-[60%] blur-[180px] rounded-full transition-all duration-1000",
+          isDarkMode ? "bg-purple-900/40" : "bg-purple-200/60"
+        )} />
+        <div className={cn(
+          "absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] blur-[150px] rounded-full transition-all duration-1000",
+          isDarkMode ? "bg-blue-900/30" : "bg-blue-200/40"
+        )} />
       </div>
 
       {/* Navigation */}
@@ -60,10 +89,16 @@ export default function Landing() {
             Aesthetic Notes
           </span>
         </div>
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-4 sm:gap-8">
+            <button 
+                onClick={toggleTheme}
+                className="p-2.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-stone-400"
+            >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
             <button 
                 onClick={() => navigate("/auth")}
-                className="text-xs font-black uppercase tracking-widest text-stone-400 hover:text-white transition-colors"
+                className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors hidden sm:block"
             >
                 Studio Entrance
             </button>
@@ -90,12 +125,15 @@ export default function Landing() {
                 </span>
             </div>
             
-            <h1 className="text-7xl lg:text-9xl font-black tracking-tighter mb-8 leading-[0.95] text-transparent bg-clip-text bg-gradient-to-b from-white to-stone-500/50">
+            <h1 className={cn(
+              "text-5xl sm:text-7xl lg:text-9xl font-black tracking-tighter mb-8 leading-[0.95] text-transparent bg-clip-text transition-all duration-1000",
+              isDarkMode ? "bg-gradient-to-b from-white to-stone-500/50" : "bg-gradient-to-b from-stone-900 to-stone-500/50"
+            )}>
                 Your Thoughts, <br />
                 Elevated by AI.
             </h1>
             
-            <p className="text-xl text-stone-400 max-w-2xl mx-auto font-medium mb-12">
+            <p className="text-lg sm:text-xl text-stone-500 dark:text-stone-400 max-w-2xl mx-auto font-medium mb-12 px-4">
                 The immersive, context-aware digital garden for your ideas. 
                 Built with Gemini 1.5 Flash and RAG intelligence.
             </p>
@@ -137,7 +175,7 @@ export default function Landing() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold mb-2 group-hover:text-[var(--accent)] transition-colors">{f.title}</h3>
-                                <p className="text-stone-400 text-sm leading-relaxed">{f.description}</p>
+                                <p className="text-stone-500 dark:text-stone-400 text-sm leading-relaxed">{f.description}</p>
                             </div>
                         </motion.div>
                     ))}
@@ -192,7 +230,7 @@ export default function Landing() {
             >
                 Get Access Now
             </button>
-            <div className="flex flex-col items-center gap-4 text-stone-500 border-t border-white/5 pt-20">
+            <div className="flex flex-col items-center gap-4 text-stone-400 dark:text-stone-500 border-t border-black/5 dark:border-white/5 pt-20">
                 <div className="flex items-center gap-2">
                     <img src={Logo} alt="Logo" className="w-6 h-6 grayscale opacity-50" />
                     <span className="text-sm font-bold tracking-tight">Aesthetic Notes Pro // v1.0.4</span>
